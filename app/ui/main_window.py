@@ -602,6 +602,10 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         self.eraser_button.setToolTip(self.tr("Erase Brush Strokes"))
         self.eraser_button.clicked.connect(self.toggle_eraser_tool)
         self.tool_buttons['eraser'] = self.eraser_button
+        self.white_brush_button = self.create_tool_button(svg="paint-brush-solid.svg", checkable=True)
+        self.white_brush_button.setToolTip(self.tr("Paint in White to Cover Text"))
+        self.white_brush_button.clicked.connect(self.toggle_white_brush_tool)
+        self.tool_buttons['white_brush'] = self.white_brush_button
 
         self.clear_brush_strokes_button = self.create_tool_button(svg = "clear-outlined.svg")
         self.clear_brush_strokes_button.setToolTip(self.tr("Remove all the brush strokes on the Image"))
@@ -610,6 +614,10 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         inp_tools_lay.addWidget(self.eraser_button)
         inp_tools_lay.addWidget(self.clear_brush_strokes_button)
         inp_tools_lay.addStretch()
+        inp_tools_lay.addWidget(self.brush_button)
+        inp_tools_lay.addWidget(self.eraser_button)
+        inp_tools_lay.addWidget(self.white_brush_button)  # NUEVO
+        inp_tools_lay.addWidget(self.clear_brush_strokes_button)
 
         self.brush_eraser_slider = MSlider()
 
@@ -679,6 +687,14 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         button.setCheckable(True) if checkable else button.setCheckable(False)
 
         return button
+    
+    def toggle_white_brush_tool(self):
+        if self.white_brush_button.isChecked():
+            self.set_tool('white_brush')
+            size = self.image_viewer.brush_size  # Comparte el mismo tamaño
+            self.set_slider_size(size)
+        else:
+            self.set_tool(None)
 
     def show_settings_page(self):
         if not self.settings_page:
@@ -759,31 +775,31 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         except Exception:
             current_tool = None
 
-        # Update the base values so next toggle will restore them
+        # Update the base values
         if current_tool == 'brush':
+            self.image_viewer.brush_size = size
+        elif current_tool == 'white_brush':  # NUEVO
             self.image_viewer.brush_size = size
         elif current_tool == 'eraser':
             self.image_viewer.eraser_size = size
         else:
-            # If no tool is active, still update both stored sizes so users can
-            # preconfigure a preferred size before switching.
             self.image_viewer.brush_size = size
             self.image_viewer.eraser_size = size
 
-        # If an image exists, compute scaled cursor size and update the active
-        # drawing manager cursor so the immediate cursor reflects the slider.
+        # Update cursor if image exists
         if self.image_viewer.hasPhoto():
             image = self.image_viewer.get_image_array()
             if image is not None:
                 h, w = image.shape[:2]
                 scaled_size = self.scale_size(size, w, h)
                 
-                if current_tool == 'brush':
+                if current_tool in ['brush', 'white_brush']:  # MODIFICADO
                     self.image_viewer.set_br_er_size(size, scaled_size)
                 elif current_tool == 'eraser':
                     self.image_viewer.set_br_er_size(size, scaled_size)
                 else:
                     self.image_viewer.drawing_manager.set_brush_size(size, scaled_size)
+                    self.image_viewer.drawing_manager.set_white_brush_size(size, scaled_size)  # NUEVO
                     self.image_viewer.drawing_manager.set_eraser_size(size, scaled_size)
 
     def scale_size(self, base_size, image_width, image_height):

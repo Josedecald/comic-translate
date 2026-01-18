@@ -41,6 +41,10 @@ class EventHandler:
                         clicked_item.item_selected.emit(clicked_item)
                 elif isinstance(clicked_item, MoveableRectItem):
                     self.viewer.select_rectangle(clicked_item)
+
+        if self.viewer.current_tool in ['brush', 'eraser', 'white_brush'] and self.viewer.hasPhoto():  # AGREGAMOS white_brush
+            if self._is_on_image(scene_pos):
+                self.viewer.drawing_manager.start_stroke(scene_pos)
         
         if event.button() == Qt.LeftButton:
             # Order is important: check for handles, then drag, then general deselection
@@ -79,6 +83,10 @@ class EventHandler:
         if self._move_handle_drag(event, scene_pos):
             self.last_scene_pos = scene_pos
             return
+        
+        if self.viewer.current_tool in ['brush', 'eraser', 'white_brush'] and self.viewer.drawing_manager.current_path:  # AGREGAMOS
+            if self._is_on_image(scene_pos):
+                self.viewer.drawing_manager.continue_stroke(scene_pos)
 
         # Then handle other interactions like resize/rotate hover
         if self._move_handle_item_interaction(scene_pos): 
@@ -102,6 +110,9 @@ class EventHandler:
 
     def handle_mouse_release(self, event: QtGui.QMouseEvent):
         interaction_finished = False # Flag to track if we handled the event
+
+        if self.viewer.current_tool in ['brush', 'eraser', 'white_brush']:  # AGREGAMOS
+            self.viewer.drawing_manager.end_stroke()
 
         if event.button() == Qt.LeftButton:
             interaction_finished = self._release_handle_item_interaction()

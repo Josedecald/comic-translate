@@ -25,6 +25,7 @@ class DrawingManager:
         
         self.brush_cursor = self.create_inpaint_cursor('brush', self.brush_size)
         self.eraser_cursor = self.create_inpaint_cursor('eraser', self.eraser_size)
+        self.white_brush_cursor = self.create_inpaint_cursor('white_brush', self.brush_size)  # NUEVO
 
         self.current_path = None
         self.current_path_item = None
@@ -34,17 +35,26 @@ class DrawingManager:
 
     def start_stroke(self, scene_pos: QPointF):
         """Starts a new drawing or erasing stroke."""
-        self.viewer.drawing_path = QPainterPath() # drawing_path is on viewer in original
+        self.viewer.drawing_path = QPainterPath()
         self.viewer.drawing_path.moveTo(scene_pos)
         
         self.current_path = QPainterPath()
         self.current_path.moveTo(scene_pos)
-
+    
         if self.viewer.current_tool == 'brush':
             pen = QPen(self.brush_color, self.brush_size, 
                        Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             self.current_path_item = self._scene.addPath(self.current_path, pen)
-            self.current_path_item.setZValue(0.8)  
+            self.current_path_item.setZValue(0.8)
+        
+        elif self.viewer.current_tool == 'white_brush':
+            # Nueva herramienta: brocha blanca
+            white_color = QColor(255, 255, 255, 255)  # Blanco opaco
+            pen = QPen(white_color, self.brush_size, 
+                       Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            brush = QBrush(white_color)
+            self.current_path_item = self._scene.addPath(self.current_path, pen, brush)
+            self.current_path_item.setZValue(0.8)
         
         elif self.viewer.current_tool == 'eraser':
             # Capture the current state before starting erase operation
@@ -54,23 +64,23 @@ class DrawingManager:
                 for item in self._scene.items():
                     if (isinstance(item, QGraphicsPathItem) and 
                         item != photo_item and
-                        hasattr(item, 'path')):  # Ensure item has path method
+                        hasattr(item, 'path')):
                         props = pcb.save_path_properties(item)
-                        if props:  # Only add valid properties
+                        if props:
                             self.before_erase_state.append(props)
             except Exception as e:
                 print(f"Warning: Error capturing before_erase_state: {e}")
                 import traceback
                 traceback.print_exc()
                 self.before_erase_state = []
-
+    
     def continue_stroke(self, scene_pos: QPointF):
         """Continues an existing drawing or erasing stroke."""
         if not self.current_path:
             return
 
         self.current_path.lineTo(scene_pos)
-        if self.viewer.current_tool == 'brush' and self.current_path_item:
+        if self.viewer.current_tool in ['brush', 'white_brush'] and self.current_path_item:
             self.current_path_item.setPath(self.current_path)
         elif self.viewer.current_tool == 'eraser':
             self.erase_at(scene_pos)
@@ -78,11 +88,12 @@ class DrawingManager:
     def end_stroke(self):
         """Finalizes the current stroke and creates an undo command."""
         if self.current_path_item:
-            if self.viewer.current_tool == 'brush':
+            if self.viewer.current_tool in ['brush', 'white_brush']:
                 command = BrushStrokeCommand(self.viewer, self.current_path_item)
                 self.viewer.command_emitted.emit(command)
 
         if self.viewer.current_tool == 'eraser':
+        # ... resto del código existente para eraser
             # Capture the current state after erase operation
             self.after_erase_state = []
             try:
@@ -189,18 +200,28 @@ class DrawingManager:
         pixmap = QPixmap(size, size)
         pixmap.fill(Qt.transparent)
         painter = QPainter(pixmap)
+        
         if cursor_type == "brush":
             painter.setBrush(QBrush(QColor(255, 0, 0, 127)))
             painter.setPen(Qt.PenStyle.NoPen)
+        elif cursor_type == "white_brush":
+            # Cursor blanco con borde negro para visibilidad
+            painter.setBrush(QBrush(QColor(255, 255, 255, 200)))
+            painter.setPen(QPen(QColor(0, 0, 0, 127), 2))
         elif cursor_type == "eraser":
             painter.setBrush(QBrush(QColor(0, 0, 0, 0)))
             painter.setPen(QColor(0, 0, 0, 127))
         else:
             painter.setBrush(QBrush(QColor(0, 0, 0, 127)))
             painter.setPen(Qt.PenStyle.NoPen)
+            
         painter.drawEllipse(0, 0, (size - 1), (size - 1))
         painter.end()
         return QCursor(pixmap, size // 2, size // 2)
+    
+    def set_white_brush_size(self, size, scaled_size):
+        self.brush_size = size  # Compartimos el mismo tamaño que la brocha roja
+        self.white_brush_cursor = self.create_inpaint_cursor("white_brush", scaled_size)
     
     def save_brush_strokes(self) -> List[Dict]:
         strokes = []

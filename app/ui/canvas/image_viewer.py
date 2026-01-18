@@ -152,12 +152,14 @@ class ImageViewer(QGraphicsView):
         self.current_tool = tool
         if tool == 'pan':
             self.setDragMode(QGraphicsView.ScrollHandDrag)
-        elif tool in ['brush', 'eraser']:
+        elif tool in ['brush', 'eraser', 'white_brush']:  # AGREGAMOS white_brush
             self.setDragMode(QGraphicsView.NoDrag)
             if tool == 'brush':
                 cursor = self.drawing_manager.brush_cursor
+            elif tool == 'white_brush':
+                cursor = self.drawing_manager.white_brush_cursor  # NUEVO
             else:
-                cursor =  self.drawing_manager.eraser_cursor
+                cursor = self.drawing_manager.eraser_cursor
             self.setCursor(cursor)
         else:
             self.setDragMode(QGraphicsView.NoDrag)
